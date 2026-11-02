@@ -62,7 +62,7 @@ body.menu{overflow:auto}
 <div id="menu">
   <h1>Fake Screens</h1>
   <p>Choisis un écran. Il se lance en plein écran, curseur caché, clavier verrouillé (Chrome/Edge : Échap ne sort pas).<br>
-  <b>Pour qu'Échap ne marche pas (Vivaldi, Firefox, Safari…) : appuie d'abord sur <kbd>F11</kbd>, puis lance l'écran.</b><br>
+  <b>Chrome, Edge, Brave, Opera : Échap bloqué (il faut le maintenir). Vivaldi, Firefox : appuie d'abord sur <kbd>F11</kbd>, puis lance l'écran.</b><br>
   Pour sortir : <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd>, ou taper <kbd>q</kbd><kbd>u</kbd><kbd>i</kbd><kbd>t</kbd> au clavier.<br>
   Astuce : le lien « copier » ouvre directement l'écran ; le plein écran démarre au premier clic ou à la première touche de la victime.</p>
   <div class="grid" id="grid"></div>
@@ -180,10 +180,18 @@ function run(id, opts){ clearTimers(); RENDER[id](opts); }
 /* ---------- Verrouillage ---------- */
 // Plein écran F11 (navigateur) : Échap ne le quitte pas, on ne le remplace donc pas
 const f11 = () => !document.fullscreenElement && Math.abs(window.innerHeight - screen.height) < 4 && Math.abs(window.innerWidth - screen.width) < 4;
+let entering = false;
 async function goFull(){
-  try { if (!document.fullscreenElement && !f11()) await document.documentElement.requestFullscreen({navigationUI:"hide"}); } catch(e){}
-  try { if (navigator.keyboard && navigator.keyboard.lock) await navigator.keyboard.lock(); } catch(e){}
+  if (entering || document.fullscreenElement || f11()) return;
+  entering = true;
+  try { await document.documentElement.requestFullscreen({navigationUI:"hide"}); } catch(e){}
+  entering = false;
 }
+// Verrou clavier posé une seule fois par entrée en plein écran (le redemander le relâche un instant)
+document.addEventListener("fullscreenchange", () => {
+  if (active && document.fullscreenElement && navigator.keyboard && navigator.keyboard.lock)
+    navigator.keyboard.lock().catch(()=>{});
+});
 const block = e => { if (active) { e.preventDefault(); e.stopPropagation(); } };
 const beforeUnload = e => { if (active) { e.preventDefault(); e.returnValue = ""; } };
 
@@ -212,10 +220,10 @@ document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.shiftKey && (e.key === "X" || e.key === "x")) { e.preventDefault(); return stop(); }
   typed = (typed + (e.key.length === 1 ? e.key.toLowerCase() : "")).slice(-4);
   if (typed === "quit") return stop();
-  e.preventDefault(); goFull();
+  e.preventDefault(); if (e.key !== "Escape") goFull();
 }, true);
 ["keyup","keypress","contextmenu","wheel","dragstart","selectstart"].forEach(t => document.addEventListener(t, block, {capture:true, passive:false}));
-["mousedown","click","touchstart"].forEach(t => document.addEventListener(t, e => { if (active) { e.preventDefault(); goFull(); } }, {capture:true, passive:false}));
+["mousedown","touchstart"].forEach(t => document.addEventListener(t, e => { if (active) { e.preventDefault(); goFull(); } }, {capture:true, passive:false}));
 document.addEventListener("fullscreenchange", () => { if (active && !document.fullscreenElement) stage.style.cursor = "none"; });
 window.addEventListener("beforeunload", beforeUnload);
 window.addEventListener("popstate", () => { if (active) history.pushState(null,"",location.hash); });
