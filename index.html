@@ -62,7 +62,8 @@ body.menu{overflow:auto}
 <div id="menu">
   <h1>Fake Screens</h1>
   <p>Choisis un écran. Il se lance en plein écran, curseur caché, clavier verrouillé (Chrome/Edge : Échap ne sort pas).<br>
-  <b>Chrome, Edge, Brave, Opera : Échap bloqué (il faut le maintenir). Vivaldi, Firefox : appuie d'abord sur <kbd>F11</kbd>, puis lance l'écran.</b><br>
+  <b>Le plus sûr, tous navigateurs (Vivaldi, Firefox inclus) : « lanceur .bat ». Il ouvre l'écran en mode kiosque : ni Échap ni F11 ne marchent, on ferme avec <kbd>Alt</kbd>+<kbd>F4</kbd>.</b><br>
+  Dans un onglet normal : Chrome, Edge, Brave bloquent Échap (il faut le maintenir) ; Vivaldi, Firefox : appuie d'abord sur <kbd>F11</kbd>.<br>
   Pour sortir : <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd>, ou taper <kbd>q</kbd><kbd>u</kbd><kbd>i</kbd><kbd>t</kbd> au clavier.<br>
   Astuce : le lien « copier » ouvre directement l'écran ; le plein écran démarre au premier clic ou à la première touche de la victime.</p>
   <div class="grid" id="grid"></div>
@@ -208,7 +209,7 @@ function stop(){
   try { navigator.keyboard && navigator.keyboard.unlock(); } catch(e){}
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
   // en F11, F11 reste bloqué pendant l'écran : on rappelle comment sortir
-  if (f11()) setTimeout(()=>alert("Appuie sur F11 pour quitter le plein écran."), 100);
+  if (f11()) setTimeout(()=>alert("Pour quitter : F11, ou Alt+F4 si l'écran a été lancé avec le lanceur .bat."), 100);
   stage.classList.remove("on"); stage.innerHTML = "";
   document.getElementById("menu").style.display = "";
   document.body.classList.add("menu");
@@ -233,8 +234,9 @@ const grid = document.getElementById("grid");
 for (const [id, s] of Object.entries(SCREENS)) {
   const b = document.createElement("button");
   b.className = "card"; b.style.background = s.bg;
-  b.innerHTML = `<b>${s.name}</b><span>${s.desc}</span><span class="copy" data-id="${id}">copier le lien</span>`;
+  b.innerHTML = `<b>${s.name}</b><span>${s.desc}</span><span class="copy" data-id="${id}">copier le lien</span><span class="copy bat">lanceur .bat (kiosque)</span>`;
   b.onclick = e => {
+    if (e.target.classList.contains("bat")) return downloadBat(id);
     if (e.target.classList.contains("copy")) {
       navigator.clipboard.writeText(location.origin + location.pathname + "#" + id);
       e.target.textContent = "lien copié ✓"; setTimeout(()=>e.target.textContent="copier le lien",1500); return;
@@ -243,6 +245,35 @@ for (const [id, s] of Object.entries(SCREENS)) {
   };
   grid.appendChild(b);
 }
+// Lanceur Windows : navigateur en mode kiosque sur un profil à part (sinon le flag est ignoré si le navigateur tourne déjà)
+function downloadBat(id){
+  const url = location.origin + location.pathname + "#" + id;
+  const chromium = [
+    "%ProgramFiles%\\Google\\Chrome\\Application\\chrome.exe",
+    "%LOCALAPPDATA%\\Google\\Chrome\\Application\\chrome.exe",
+    "%ProgramFiles(x86)%\\Microsoft\\Edge\\Application\\msedge.exe",
+    "%ProgramFiles%\\Microsoft\\Edge\\Application\\msedge.exe",
+    "%ProgramFiles%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+    "%LOCALAPPDATA%\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+    "%LOCALAPPDATA%\\Vivaldi\\Application\\vivaldi.exe",
+    "%ProgramFiles%\\Vivaldi\\Application\\vivaldi.exe",
+  ];
+  const lines = [
+    "@echo off",
+    `set "U=${url}"`,
+    'set "D=%TEMP%\\fake-screens-kiosk"',
+    ...chromium.map(p => `if exist "${p}" (start "" "${p}" --kiosk --edge-kiosk-type=fullscreen --user-data-dir="%D%" --no-first-run --no-default-browser-check --disable-session-crashed-bubble "%U%" & exit /b)`),
+    'set "F=%ProgramFiles%\\Mozilla Firefox\\firefox.exe"',
+    'if exist "%F%" (mkdir "%D%-ff" 2>nul & start "" "%F%" -no-remote -profile "%D%-ff" --kiosk "%U%" & exit /b)',
+    "echo Aucun navigateur compatible trouve.",
+    "pause",
+  ];
+  const blob = new Blob([lines.join("\r\n") + "\r\n"], {type:"application/octet-stream"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = `ecran-${id}.bat`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
 const h = location.hash.slice(1);
 if (SCREENS[h]) start(h);
 </script>
