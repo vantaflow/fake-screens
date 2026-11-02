@@ -62,6 +62,7 @@ body.menu{overflow:auto}
 <div id="menu">
   <h1>Fake Screens</h1>
   <p>Choisis un écran. Il se lance en plein écran, curseur caché, clavier verrouillé (Chrome/Edge : Échap ne sort pas).<br>
+  <b>Pour qu'Échap ne marche pas (Vivaldi, Firefox, Safari…) : appuie d'abord sur <kbd>F11</kbd>, puis lance l'écran.</b><br>
   Pour sortir : <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd>, ou taper <kbd>q</kbd><kbd>u</kbd><kbd>i</kbd><kbd>t</kbd> au clavier.<br>
   Astuce : le lien « copier » ouvre directement l'écran ; le plein écran démarre au premier clic ou à la première touche de la victime.</p>
   <div class="grid" id="grid"></div>
@@ -177,8 +178,10 @@ Beginning dump of physical memory
 function run(id, opts){ clearTimers(); RENDER[id](opts); }
 
 /* ---------- Verrouillage ---------- */
+// Plein écran F11 (navigateur) : Échap ne le quitte pas, on ne le remplace donc pas
+const f11 = () => !document.fullscreenElement && Math.abs(window.innerHeight - screen.height) < 4 && Math.abs(window.innerWidth - screen.width) < 4;
 async function goFull(){
-  try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI:"hide"}); } catch(e){}
+  try { if (!document.fullscreenElement && !f11()) await document.documentElement.requestFullscreen({navigationUI:"hide"}); } catch(e){}
   try { if (navigator.keyboard && navigator.keyboard.lock) await navigator.keyboard.lock(); } catch(e){}
 }
 const block = e => { if (active) { e.preventDefault(); e.stopPropagation(); } };
@@ -196,6 +199,8 @@ function stop(){
   active = false; clearTimers();
   try { navigator.keyboard && navigator.keyboard.unlock(); } catch(e){}
   if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  // en F11, F11 reste bloqué pendant l'écran : on rappelle comment sortir
+  if (f11()) setTimeout(()=>alert("Appuie sur F11 pour quitter le plein écran."), 100);
   stage.classList.remove("on"); stage.innerHTML = "";
   document.getElementById("menu").style.display = "";
   document.body.classList.add("menu");
