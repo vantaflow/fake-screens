@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Fake Screens</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#111;color:#fff;font-family:"Segoe UI",system-ui,sans-serif;overflow:hidden}
+body.menu{overflow:auto}
+/* ---------- Menu ---------- */
+#menu{max-width:960px;margin:0 auto;padding:40px 16px}
+#menu h1{font-weight:600;font-size:28px;margin-bottom:6px}
+#menu p{color:#aaa;margin-bottom:24px;line-height:1.5}
+#menu kbd{background:#333;border:1px solid #555;border-radius:4px;padding:1px 6px;font-family:inherit;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.card{border:0;border-radius:10px;padding:18px;text-align:left;cursor:pointer;color:#fff;font:inherit;min-height:110px;display:flex;flex-direction:column;justify-content:flex-end;transition:transform .15s}
+.card:hover{transform:translateY(-3px)}
+.card b{font-size:16px}.card span{font-size:13px;opacity:.8;margin-top:4px}
+.copy{margin-top:8px;font-size:12px;opacity:.7;text-decoration:underline}
+/* ---------- Stage ---------- */
+#stage{position:fixed;inset:0;display:none;cursor:none;user-select:none}
+#stage.on{display:block}
+.full{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+/* Spinner Windows */
+.spin{position:relative;width:46px;height:46px}
+.spin i{position:absolute;inset:0;opacity:0;animation:orbit 5.5s infinite}
+.spin i:after{content:"";position:absolute;width:5px;height:5px;border-radius:50%;background:#fff;left:50%;top:0}
+.spin i:nth-child(2){animation-delay:.24s}.spin i:nth-child(3){animation-delay:.48s}
+.spin i:nth-child(4){animation-delay:.72s}.spin i:nth-child(5){animation-delay:.96s}
+@keyframes orbit{
+0%{transform:rotate(225deg);opacity:1;animation-timing-function:ease-out}
+7%{transform:rotate(345deg);animation-timing-function:linear}
+30%{transform:rotate(455deg);animation-timing-function:ease-in-out}
+39%{transform:rotate(690deg);animation-timing-function:linear}
+70%{transform:rotate(815deg);opacity:1;animation-timing-function:ease-out}
+75%{transform:rotate(945deg);animation-timing-function:ease-out}
+76%,100%{transform:rotate(945deg);opacity:0}}
+/* Logo Windows 11 */
+.logo11{display:grid;grid-template-columns:1fr 1fr;gap:4px;width:110px;height:110px}
+.logo11 div{background:linear-gradient(135deg,#3ccbf4,#0a7cd8)}
+/* Update */
+.upd{font-weight:300;font-size:clamp(18px,2.2vw,30px);line-height:1.5}
+.upd small{display:block;font-size:.75em}
+/* BSOD 10/11 */
+.bsod{position:absolute;inset:0;padding:12vh 0 0 13vw;text-align:left;font-weight:300}
+.bsod .face{font-size:clamp(90px,11vw,160px);line-height:1;margin-bottom:4vh}
+.bsod .msg{font-size:clamp(18px,2vw,28px);max-width:62vw;line-height:1.4}
+.bsod .pct{font-size:clamp(18px,2vw,28px);margin:4vh 0}
+.bsod .row{display:flex;gap:20px;align-items:flex-start}
+.bsod canvas{width:clamp(80px,7vw,110px);height:auto;image-rendering:pixelated;background:#fff;padding:4px}
+.bsod .info{font-size:clamp(11px,.95vw,15px);line-height:1.5}
+.bsod .info p{margin-bottom:10px}
+/* XP */
+.xp{position:absolute;inset:0;background:#0000aa;color:#fff;font-family:"Lucida Console",Consolas,monospace;font-size:clamp(12px,1.25vw,19px);padding:3vh 2vw;white-space:pre-wrap;line-height:1.35}
+/* Chkdsk / boot text */
+.under{position:absolute;bottom:14vh;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:22px;font-size:clamp(15px,1.4vw,21px);font-weight:300}
+</style>
+</head>
+<body class="menu">
+
+<div id="menu">
+  <h1>Fake Screens</h1>
+  <p>Choisis un écran. Il se lance en plein écran, curseur caché, clavier verrouillé (Chrome/Edge : Échap ne sort pas).<br>
+  Pour sortir : <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd>, ou taper <kbd>q</kbd><kbd>u</kbd><kbd>i</kbd><kbd>t</kbd> au clavier.<br>
+  Astuce : le lien « copier » ouvre directement l'écran ; le plein écran démarre au premier clic ou à la première touche de la victime.</p>
+  <div class="grid" id="grid"></div>
+</div>
+
+<div id="stage"></div>
+
+<script>
+const SCREENS = {
+  update11:{name:"Mise à jour Windows 11",desc:"Fond bleu nuit, pourcentage lent",bg:"#0b2a4a"},
+  update10:{name:"Mise à jour Windows 10",desc:"Fond bleu, « Ne pas éteindre »",bg:"#0063b1"},
+  bsod:{name:"Écran bleu (BSOD)",desc:"Windows 10/11, QR code, redémarre",bg:"#0078d7"},
+  bsodxp:{name:"Écran bleu XP",desc:"Rétro, texte console",bg:"#0000aa"},
+  boot:{name:"Démarrage",desc:"Logo + rond qui tourne, sans fin",bg:"#000"},
+  chkdsk:{name:"Réparation du disque",desc:"Analyse et réparation du lecteur C:",bg:"#1a1a1a"},
+  restart:{name:"Redémarrage",desc:"« Redémarrage » + rond qui tourne",bg:"#0b2a4a"},
+};
+
+const stage = document.getElementById("stage");
+let timers = [], active = false, typed = "";
+
+const spinner = () => '<div class="spin"><i></i><i></i><i></i><i></i><i></i></div>';
+const logo11 = () => '<div class="logo11"><div></div><div></div><div></div><div></div></div>';
+const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+const every = (fn, ms) => timers.push(setInterval(fn, ms));
+function clearTimers(){ timers.forEach(t => { clearTimeout(t); clearInterval(t); }); timers = []; }
+
+// Progression réaliste : rapide au début, longues pauses ensuite
+function progress(el, fmt, {start=0, max=99, onDone}={}){
+  let p = start;
+  const tick = () => {
+    if (p >= max) { el.innerHTML = fmt(max); if (onDone) onDone(); return; }
+    const r = Math.random();
+    p += r < .6 ? 1 : r < .85 ? 0 : 2;
+    p = Math.min(p, max);
+    el.innerHTML = fmt(p);
+    const delay = p < 30 ? 1500 + Math.random()*3000 : p < 80 ? 4000 + Math.random()*9000 : 15000 + Math.random()*40000;
+    later(tick, delay);
+  };
+  el.innerHTML = fmt(p); later(tick, 2000);
+}
+
+function qr(canvas){
+  const n = 25, c = canvas.getContext("2d"); canvas.width = canvas.height = n;
+  c.fillStyle="#fff"; c.fillRect(0,0,n,n); c.fillStyle="#000";
+  for (let y=0;y<n;y++) for (let x=0;x<n;x++) if (Math.random()<.5) c.fillRect(x,y,1,1);
+  const finder=(x,y)=>{c.fillStyle="#fff";c.fillRect(x-1,y-1,9,9);c.fillStyle="#000";c.fillRect(x,y,7,7);c.fillStyle="#fff";c.fillRect(x+1,y+1,5,5);c.fillStyle="#000";c.fillRect(x+2,y+2,3,3);};
+  finder(0,0); finder(n-7,0); finder(0,n-7);
+}
+
+const RENDER = {
+  update11(){
+    stage.innerHTML = `<div class="full" style="background:#0b2a4a">${spinner()}<div class="upd" style="margin-top:34px"><span id="t"></span><small>Ne pas éteindre votre ordinateur. Cela peut prendre un certain temps.</small><small>Votre ordinateur va redémarrer plusieurs fois.</small></div></div>`;
+    progress(t, p => `Mises à jour en cours ${p} %`);
+  },
+  update10(){
+    stage.innerHTML = `<div class="full" style="background:#0063b1">${spinner()}<div class="upd" style="margin-top:34px"><span id="t"></span><small>Ne pas éteindre votre ordinateur</small></div></div>`;
+    progress(t, p => `Travail sur les mises à jour ${p} % effectué(s)`);
+  },
+  bsod(){
+    const codes=["CRITICAL_PROCESS_DIED","IRQL_NOT_LESS_OR_EQUAL","SYSTEM_SERVICE_EXCEPTION","KERNEL_SECURITY_CHECK_FAILURE","PAGE_FAULT_IN_NONPAGED_AREA"];
+    stage.innerHTML = `<div class="bsod" style="background:#0078d7"><div class="face">:(</div>
+      <div class="msg">Votre PC a rencontré un problème et doit redémarrer. Nous collectons simplement des informations relatives aux erreurs, puis nous allons redémarrer pour vous.</div>
+      <div class="pct" id="t"></div>
+      <div class="row"><canvas id="q"></canvas><div class="info"><p>Pour plus d'informations sur ce problème et les correctifs possibles, visitez https://www.windows.com/stopcode</p>
+      <p>Si vous appelez un support technique, donnez-lui ces informations :<br>Code d'arrêt : ${codes[Math.floor(Math.random()*codes.length)]}</p></div></div></div>`;
+    qr(q);
+    progress(t, p => `${p} % effectué(s)`, {max:100, onDone:()=>later(()=>{ stage.innerHTML='<div class="full" style="background:#000"></div>'; later(()=>run("boot",{after:"update11"}),3000); },2500)});
+  },
+  bsodxp(){
+    stage.innerHTML = `<div class="xp">A problem has been detected and Windows has been shut down to prevent damage
+to your computer.
+
+PAGE_FAULT_IN_NONPAGED_AREA
+
+If this is the first time you've seen this Stop error screen,
+restart your computer. If this screen appears again, follow
+these steps:
+
+Check to make sure any new hardware or software is properly installed.
+If this is a new installation, ask your hardware or software manufacturer
+for any Windows updates you might need.
+
+If problems continue, disable or remove any newly installed hardware
+or software. Disable BIOS memory options such as caching or shadowing.
+If you need to use Safe Mode to remove or disable components, restart
+your computer, press F8 to select Advanced Startup Options, and then
+select Safe Mode.
+
+Technical information:
+
+*** STOP: 0x00000050 (0xFD3094C2,0x00000001,0xFBFE7617,0x00000000)
+
+***  SPCMDCON.SYS - Address FBFE7617 base at FBFE5000, DateStamp 3d6dd67c
+
+Beginning dump of physical memory
+<span id="t"></span></div>`;
+    progress(t, p => `Dumping physical memory to disk:  ${p}`, {max:100, onDone:()=>{ t.insertAdjacentText("afterend","\nPhysical memory dump complete.\nContact your system administrator or technical support group for further\nassistance."); }});
+  },
+  boot(opts={}){
+    stage.innerHTML = `<div class="full" style="background:#000">${logo11()}<div class="under">${spinner()}</div></div>`;
+    if (opts.after) later(()=>run(opts.after), 9000);
+  },
+  chkdsk(){
+    stage.innerHTML = `<div class="full" style="background:#000">${logo11()}<div class="under"><span>Analyse et réparation du lecteur (C:) : <span id="t"></span></span>${spinner()}</div></div>`;
+    progress(t, p => `${p} % effectué(s)`);
+  },
+  restart(){
+    stage.innerHTML = `<div class="full" style="background:#0b2a4a">${spinner()}<div class="upd" style="margin-top:34px">Redémarrage</div></div>`;
+  },
+};
+
+function run(id, opts){ clearTimers(); RENDER[id](opts); }
+
+/* ---------- Verrouillage ---------- */
+async function goFull(){
+  try { if (!document.fullscreenElement) await document.documentElement.requestFullscreen({navigationUI:"hide"}); } catch(e){}
+  try { if (navigator.keyboard && navigator.keyboard.lock) await navigator.keyboard.lock(); } catch(e){}
+}
+const block = e => { if (active) { e.preventDefault(); e.stopPropagation(); } };
+const beforeUnload = e => { if (active) { e.preventDefault(); e.returnValue = ""; } };
+
+function start(id){
+  active = true; typed = "";
+  document.body.classList.remove("menu");
+  document.getElementById("menu").style.display = "none";
+  stage.classList.add("on");
+  history.replaceState(null,"","#"+id); history.pushState(null,"","#"+id);
+  run(id); goFull();
+}
+function stop(){
+  active = false; clearTimers();
+  try { navigator.keyboard && navigator.keyboard.unlock(); } catch(e){}
+  if (document.fullscreenElement) document.exitFullscreen().catch(()=>{});
+  stage.classList.remove("on"); stage.innerHTML = "";
+  document.getElementById("menu").style.display = "";
+  document.body.classList.add("menu");
+  history.replaceState(null,"",location.pathname);
+}
+
+document.addEventListener("keydown", e => {
+  if (!active) return;
+  if (e.ctrlKey && e.shiftKey && (e.key === "X" || e.key === "x")) { e.preventDefault(); return stop(); }
+  typed = (typed + (e.key.length === 1 ? e.key.toLowerCase() : "")).slice(-4);
+  if (typed === "quit") return stop();
+  e.preventDefault(); goFull();
+}, true);
+["keyup","keypress","contextmenu","wheel","dragstart","selectstart"].forEach(t => document.addEventListener(t, block, {capture:true, passive:false}));
+["mousedown","click","touchstart"].forEach(t => document.addEventListener(t, e => { if (active) { e.preventDefault(); goFull(); } }, {capture:true, passive:false}));
+document.addEventListener("fullscreenchange", () => { if (active && !document.fullscreenElement) stage.style.cursor = "none"; });
+window.addEventListener("beforeunload", beforeUnload);
+window.addEventListener("popstate", () => { if (active) history.pushState(null,"",location.hash); });
+
+/* ---------- Menu ---------- */
+const grid = document.getElementById("grid");
+for (const [id, s] of Object.entries(SCREENS)) {
+  const b = document.createElement("button");
+  b.className = "card"; b.style.background = s.bg;
+  b.innerHTML = `<b>${s.name}</b><span>${s.desc}</span><span class="copy" data-id="${id}">copier le lien</span>`;
+  b.onclick = e => {
+    if (e.target.classList.contains("copy")) {
+      navigator.clipboard.writeText(location.origin + location.pathname + "#" + id);
+      e.target.textContent = "lien copié ✓"; setTimeout(()=>e.target.textContent="copier le lien",1500); return;
+    }
+    start(id);
+  };
+  grid.appendChild(b);
+}
+const h = location.hash.slice(1);
+if (SCREENS[h]) start(h);
+</script>
+</body>
+</html>
