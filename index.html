@@ -62,7 +62,7 @@ body.menu{overflow:auto}
 <div id="menu">
   <h1>Fake Screens</h1>
   <p>Choisis un écran. Il se lance en plein écran, curseur caché, clavier verrouillé (Chrome/Edge : Échap ne sort pas).<br>
-  <b>Le plus sûr, tous navigateurs (Vivaldi, Firefox inclus) : « lanceur .bat ». Il ouvre l'écran en mode kiosque : ni Échap ni F11 ne marchent, on ferme avec <kbd>Alt</kbd>+<kbd>F4</kbd>.</b><br>
+  <b>Le plus sûr, tous navigateurs (Vivaldi, Firefox inclus) : « lanceur Windows .bat » ou « commande Mac ». L'écran s'ouvre en mode kiosque : ni Échap ni F11 ne marchent, on ferme avec <kbd>Alt</kbd>+<kbd>F4</kbd> (Windows) ou <kbd>Cmd</kbd>+<kbd>Q</kbd> (Mac).</b><br>
   Dans un onglet normal : Chrome, Edge, Brave bloquent Échap (il faut le maintenir) ; Vivaldi, Firefox : appuie d'abord sur <kbd>F11</kbd>.<br>
   Pour sortir : <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>X</kbd>, ou taper <kbd>q</kbd><kbd>u</kbd><kbd>i</kbd><kbd>t</kbd> au clavier.<br>
   Astuce : le lien « copier » ouvre directement l'écran ; le plein écran démarre au premier clic ou à la première touche de la victime.</p>
@@ -234,9 +234,13 @@ const grid = document.getElementById("grid");
 for (const [id, s] of Object.entries(SCREENS)) {
   const b = document.createElement("button");
   b.className = "card"; b.style.background = s.bg;
-  b.innerHTML = `<b>${s.name}</b><span>${s.desc}</span><span class="copy" data-id="${id}">copier le lien</span><span class="copy bat">lanceur .bat (kiosque)</span>`;
+  b.innerHTML = `<b>${s.name}</b><span>${s.desc}</span><span class="copy" data-id="${id}">copier le lien</span><span class="copy bat">lanceur Windows .bat (kiosque)</span><span class="copy mac">commande Mac (kiosque)</span>`;
   b.onclick = e => {
     if (e.target.classList.contains("bat")) return downloadBat(id);
+    if (e.target.classList.contains("mac")) {
+      navigator.clipboard.writeText(macCommand(id));
+      e.target.textContent = "commande copiée ✓ : colle-la dans le Terminal"; setTimeout(()=>e.target.textContent="commande Mac (kiosque)",2500); return;
+    }
     if (e.target.classList.contains("copy")) {
       navigator.clipboard.writeText(location.origin + location.pathname + "#" + id);
       e.target.textContent = "lien copié ✓"; setTimeout(()=>e.target.textContent="copier le lien",1500); return;
@@ -270,6 +274,15 @@ function downloadBat(id){
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = `ecran-${id}.bat`; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+}
+
+// Équivalent Mac : commande Terminal (un script téléchargé serait bloqué par macOS)
+function macCommand(id){
+  const url = location.origin + location.pathname + "#" + id;
+  return `(U='${url}'; D=/tmp/fake-screens-kiosk; ` +
+    `for a in "Google Chrome" "Microsoft Edge" "Brave Browser"; do [ -d "/Applications/$a.app" ] && { open -na "$a" --args --kiosk --user-data-dir="$D" --no-first-run --no-default-browser-check "$U"; exit; }; done; ` +
+    `[ -d /Applications/Firefox.app ] && { mkdir -p "$D-ff"; open -na Firefox --args -no-remote -profile "$D-ff" --kiosk "$U"; exit; }; ` +
+    `echo "Installe Chrome, Edge, Brave ou Firefox (Safari et Vivaldi n'ont pas de mode kiosque).")`;
 }
 
 const h = location.hash.slice(1);
